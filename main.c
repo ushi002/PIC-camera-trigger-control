@@ -31,6 +31,7 @@ void main(void)
 {
     unsigned int dacval, i;
     bool thiefdetected = 0;
+    unsigned int startupDelay = 0;
     
     /* Configure the oscillator for the device */
     ConfigureOscillator();
@@ -79,6 +80,27 @@ void main(void)
     //!! IOCAFbits.IOCAF5 should be set when interrupt arrives..
     //??OPTION_REGbits.INTEDG = 0; //falling edge interrupt
     
+    INTCONbits.INTF = 0; //clear external interrupt flag
+    while(startupDelay < 4)
+    {
+        for(i=0; i<200; i++) {} //delay before diode is turned off
+        LATAbits.LATA4 = 0;
+        asm("SLEEP");
+        asm("NOP");
+        if (!STATUSbits.nTO) //watchdog timeout
+        {
+            LATAbits.LATA4 = 1;
+            startupDelay++;
+        }
+        INTCONbits.INTF = 0; //clear (watchdog) flag
+    }
+
+    //clear flags
+    LATAbits.LATA4 = 0;
+    INTCONbits.INTF = 0; //clear external interrupt flag
+    IOCAFbits.IOCAF5 = 0;
+    thiefdetected = false;
+
     while(1)
     {
         if (!thiefdetected)
